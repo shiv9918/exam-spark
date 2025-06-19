@@ -15,7 +15,10 @@ def create_app():
 
     db.init_app(app)
     jwt = JWTManager(app)
-    CORS(app, origins="*", supports_credentials=True)
+    CORS(app, origins=[
+        "http://localhost:8080",
+        "http://127.0.0.1:8080"
+    ], supports_credentials=True)
 
     # MOVE THIS IMPORT HERE TO AVOID CIRCULAR IMPORT
     from routes.auth import auth_bp

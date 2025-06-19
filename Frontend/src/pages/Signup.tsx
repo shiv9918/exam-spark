@@ -69,7 +69,7 @@ const Signup = () => {
     }
 
     try {
-      const result = authService.signup(
+      const result = await authService.signup(
         formData.email,
         formData.password,
         formData.name,

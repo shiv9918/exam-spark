@@ -9,6 +9,7 @@ import { dataService, StudentSubmission, QuestionPaper } from '@/services/dataSe
 import { evaluateWithGemini } from '@/api/gemini';
 import { useToast } from '@/hooks/use-toast';
 import { FileText, User, Clock, CheckCircle } from 'lucide-react';
+import API from '@/services/api';
 
 const ViewSubmissions = () => {
   const [user, setUser] = useState(authService.getAuthState().user);
@@ -73,35 +74,29 @@ const ViewSubmissions = () => {
 
     setIsEvaluating(true);
     try {
-      // Use Gemini API for evaluation
-      const evaluation = await evaluateWithGemini(paper, submission.answers);
+      const evaluation = await evaluateWithGemini(paper.content, submission.answers);
+
       const token = authService.getToken();
-      const res = await fetch(`http://localhost:5000/api/submissions/${submission.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ evaluation: { ...evaluation, evaluatedAt: new Date().toISOString() } })
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to update evaluation');
+      if (!token) return;
+
+      const res = await API.patch(`/submissions/${submission.id}`,
+        { evaluation },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (res.status === 200) {
+        setSubmissions(prev =>
+          prev.map(s => (s.id === submission.id ? { ...s, evaluated: true, evaluation: res.data.evaluation } : s))
+        );
+        toast({ title: "Success", description: "Evaluation complete and saved." });
+      } else {
+        toast({ title: "Error", description: "Failed to save evaluation.", variant: 'destructive' });
       }
-      await loadData(); // Refresh data
-      toast({
-        title: "Evaluation Complete",
-        description: "The submission has been evaluated successfully",
-      });
-      setSelectedSubmission(null);
     } catch (error) {
-      toast({
-        title: "Evaluation Failed",
-        description: "Failed to evaluate the submission. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "An unexpected error occurred during evaluation.", variant: 'destructive' });
     } finally {
       setIsEvaluating(false);
+      setSelectedSubmission(null);
     }
   };
 

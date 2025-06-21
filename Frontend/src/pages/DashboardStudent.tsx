@@ -7,10 +7,11 @@ import { authService } from '@/utils/auth';
 import { dataService, QuestionPaper, StudentSubmission } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
 import { FileText, CheckCircle, Clock } from 'lucide-react';
+import API from '@/services/api';
 
 const DashboardStudent = () => {
   const [user, setUser] = useState(authService.getAuthState().user);
-  const [questionPapers, setQuestionPapers] = useState<QuestionPaper[]>([]);
+  const [papers, setPapers] = useState<QuestionPaper[]>([]);
   const [submissions, setSubmissions] = useState<StudentSubmission[]>([]);
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -19,45 +20,29 @@ const DashboardStudent = () => {
 
   useEffect(() => {
     const authState = authService.getAuthState();
-    if (!authState.isAuthenticated || authState.user?.role !== 'student') {
+    if (!authState.isAuthenticated || !authState.user) {
       navigate('/login');
       return;
     }
     setUser(authState.user);
-    fetchPapers(authState.user);
+
+    const token = authService.getToken();
+    if (token && authState.user.id) {
+      fetchStudentData(token, authState.user.id);
+    }
   }, [navigate]);
 
-  const fetchPapers = async (currentUser: any) => {
+  const fetchStudentData = async (token: string, studentId: number) => {
     try {
-      const res = await fetch('http://localhost:5000/api/papers', {
-        headers: { Authorization: `Bearer ${authService.getToken()}` }
-      });
-      if (res.status === 401) {
-        toast({
-          title: "Session expired",
-          description: "Please log in again.",
-          variant: "destructive",
-        });
-        authService.logout();
-        navigate('/login');
-        return;
-      }
-      const papers = await res.json();
-      setQuestionPapers(Array.isArray(papers) ? papers : []);
-      // Fetch submissions from backend
-      const subRes = await fetch('http://localhost:5000/api/submissions', {
-        headers: { Authorization: `Bearer ${authService.getToken()}` }
-      });
-      const allSubs = subRes.ok ? await subRes.json() : [];
-      const userSubmissions = allSubs.filter(sub => String(sub.studentId) === String(currentUser?.id));
-      setSubmissions(userSubmissions);
+      const [allPapers, allSubmissions] = await Promise.all([
+        dataService.getQuestionPapers(token),
+        API.get('/submissions', { headers: { Authorization: `Bearer ${token}` } }).then(res => res.data)
+      ]);
+      setPapers(allPapers);
+      const studentSubmissions = allSubmissions.filter(sub => sub.studentId === studentId);
+      setSubmissions(studentSubmissions);
     } catch (error) {
-      setQuestionPapers([]);
-      toast({
-        title: "Error",
-        description: "Failed to fetch question papers.",
-        variant: "destructive",
-      });
+      console.error("Failed to fetch student data", error);
     }
   };
 
@@ -130,7 +115,7 @@ const DashboardStudent = () => {
               <FileText className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{questionPapers.length}</div>
+              <div className="text-2xl font-bold">{papers.length}</div>
             </CardContent>
           </Card>
 
@@ -166,13 +151,13 @@ const DashboardStudent = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {questionPapers.length === 0 ? (
+            {papers.length === 0 ? (
               <p className="text-center text-gray-500 py-8">
                 No question papers available yet.
               </p>
             ) : (
               <div className="space-y-4">
-                {questionPapers.map((paper) => {
+                {papers.map((paper) => {
                   const status = getSubmissionStatus(paper.id);
                   const submission = submissions.find(sub => String(sub.questionPaperId) === String(paper.id));
                   return (

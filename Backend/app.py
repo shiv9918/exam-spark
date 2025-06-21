@@ -9,16 +9,21 @@ from flask_cors import CORS
 
 def create_app():
     app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///smarteve.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')
+    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'dev-secret-key-change-in-production')
 
     db.init_app(app)
     jwt = JWTManager(app)
-    CORS(app, origins=[
-        "http://localhost:8080",
-        "http://127.0.0.1:8080"
-    ], supports_credentials=True)
+
+    # Robust CORS setup: allow local frontend and deployed frontend
+    cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:8080,http://localhost:8081').split(',')
+    CORS(app, origins=cors_origins, supports_credentials=True)
+
+    # Test route to verify backend and CORS
+    @app.route('/api/ping')
+    def ping():
+        return {"message": "pong"}, 200
 
     # MOVE THIS IMPORT HERE TO AVOID CIRCULAR IMPORT
     from routes.auth import auth_bp

@@ -43,7 +43,7 @@ def generate_paper_route():
         if not gemini_api_key:
             return jsonify({'error': 'GEMINI_API_KEY not configured'}), 500
             
-        gemini_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={gemini_api_key}"
+        gemini_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_api_key}"
         
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
@@ -258,7 +258,7 @@ def evaluate_submission_route():
         if not gemini_api_key:
             return jsonify({'error': 'GEMINI_API_KEY not configured'}), 500
             
-        gemini_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={gemini_api_key}"
+        gemini_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_api_key}"
         
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],

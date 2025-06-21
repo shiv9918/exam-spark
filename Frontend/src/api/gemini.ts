@@ -43,6 +43,11 @@ export async function generateQuestionPaper(params: QuestionPaperParams, token: 
       throw new Error('Your session has expired. Please log in again.');
     }
     
+    // Check for rate limiting
+    if (error.response?.status === 429) {
+      throw new Error('Rate limit exceeded. Please wait a moment and try again.');
+    }
+    
     const errorMsg = error.response?.data?.error || 'Failed to generate question paper. Please try again.';
     throw new Error(errorMsg);
   }

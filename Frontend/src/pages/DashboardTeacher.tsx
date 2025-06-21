@@ -413,6 +413,12 @@ const DashboardTeacher = () => {
                                               return;
                                             }
                                             
+                                            // Check for rate limiting
+                                            if (error.response?.status === 429) {
+                                              toast({ title: "Rate Limit Exceeded", description: "Please wait a moment and try again.", variant: "destructive" });
+                                              return;
+                                            }
+                                            
                                             toast({ title: "Evaluation Failed", description: "Failed to evaluate submission. Please try again.", variant: "destructive" });
                                           } finally {
                                             setIsEvaluating(false);

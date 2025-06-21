@@ -24,6 +24,8 @@ def create_app():
     # Add Vercel domain for production
     if 'https://exam-spark-t9v2.vercel.app' not in cors_origins:
         cors_origins.append('https://exam-spark-t9v2.vercel.app')
+    if 'https://exam-spark.vercel.app' not in cors_origins:
+        cors_origins.append('https://exam-spark.vercel.app')
     
     CORS(app, origins=cors_origins, supports_credentials=True)
 

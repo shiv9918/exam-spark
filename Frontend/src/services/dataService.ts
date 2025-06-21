@@ -46,11 +46,14 @@ class DataService {
   return { ...paper, id: result.paper_id, createdAt: new Date().toISOString() };
 }
 
-  getQuestionPapers(): QuestionPaper[] {
+  async getQuestionPapers(token: string): Promise<QuestionPaper[]> {
     try {
-      const papers = localStorage.getItem(this.PAPERS_KEY);
-      return papers ? JSON.parse(papers) : [];
+      const res = await API.get('/papers', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return res.data;
     } catch (error) {
+      console.error('Failed to fetch question papers:', error);
       return [];
     }
   }

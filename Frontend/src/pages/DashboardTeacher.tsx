@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, FileText, Users, BarChart3 } from 'lucide-react';
 import { evaluateWithGemini } from '@/api/gemini';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import API from '@/services/api';
 
 const DashboardTeacher = () => {
   const [user, setUser] = useState(authService.getAuthState().user);
@@ -35,81 +36,51 @@ const DashboardTeacher = () => {
       return;
     }
     setUser(authState.user);
-    fetchSubmissions();
-    fetchRecentPapers();
-    fetchAllPapers();
+
+    const token = authService.getToken();
+    if (token) {
+      fetchDashboardData(token);
+    }
   }, [navigate]);
 
-  const fetchSubmissions = async () => {
-    const token = authService.getToken();
-    const res = await fetch('http://localhost:5000/api/submissions', {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const subs = res.ok ? await res.json() : [];
-    setSubmissions(subs);
-    loadStats(subs);
-  };
-
-  const loadStats = async (subsOverride) => {
+  const fetchDashboardData = async (token: string) => {
     try {
-      const token = authService.getToken();
-      const res = await fetch('http://localhost:5000/api/papers', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const papers = res.ok ? await res.json() : [];
-      // Use the passed-in submissions or the state
-      const currentSubs = subsOverride || submissions;
-      const evaluatedSubmissions = currentSubs.filter(sub => sub.evaluated);
+      const [papers, submissions] = await Promise.all([
+        dataService.getQuestionPapers(token),
+        API.get('/submissions', { headers: { Authorization: `Bearer ${token}` } }).then(res => res.data)
+      ]);
 
-      // Calculate per-paper averages
-      const paperAverages = papers
-        .map(paper => {
-          const paperSubs = currentSubs.filter(sub => String(sub.questionPaperId) === String(paper.id) && sub.evaluated);
-          if (paperSubs.length === 0) return null;
-          const avg = paperSubs.reduce((sum, sub) => sum + (sub.evaluation?.percentage || 0), 0) / paperSubs.length;
-          return avg;
-        })
-        .filter(avg => avg !== null);
-
-      const overallAverageScore = paperAverages.length > 0
-        ? Math.round(paperAverages.reduce((sum, avg) => sum + avg, 0) / paperAverages.length)
-        : 0;
-
-      setStats({
-        papersCreated: papers.length,
-        totalSubmissions: currentSubs.length,
-        evaluatedSubmissions: evaluatedSubmissions.length,
-        averageScore: overallAverageScore
-      });
-    } catch {
-      setStats(s => ({ ...s, papersCreated: 0 }));
-    }
-  };
-
-  const fetchRecentPapers = async () => {
-    try {
-      const token = authService.getToken();
-      const res = await fetch('http://localhost:5000/api/papers', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const papers = res.ok ? await res.json() : [];
-      setRecentPapers(papers.slice(-3).reverse()); // Show latest 3 papers, most recent first
-    } catch {
-      setRecentPapers([]);
-    }
-  };
-
-  const fetchAllPapers = async () => {
-    try {
-      const token = authService.getToken();
-      const res = await fetch('http://localhost:5000/api/papers', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const papers = res.ok ? await res.json() : [];
       setAllPapers(papers);
-    } catch {
-      setAllPapers([]);
+      setRecentPapers(papers.slice(-3).reverse());
+      setSubmissions(submissions);
+      loadStats(papers, submissions);
+    } catch (error) {
+      console.error("Failed to fetch dashboard data:", error);
+      toast({ title: 'Error', description: 'Could not load dashboard data.', variant: 'destructive' });
     }
+  };
+
+  const loadStats = (papers: any[], subs: any[]) => {
+    const evaluatedSubmissions = subs.filter(sub => sub.evaluated);
+    const paperAverages = papers
+      .map(paper => {
+        const paperSubs = subs.filter(sub => String(sub.questionPaperId) === String(paper.id) && sub.evaluated);
+        if (paperSubs.length === 0) return null;
+        const avg = paperSubs.reduce((sum, sub) => sum + (sub.evaluation?.percentage || 0), 0) / paperSubs.length;
+        return avg;
+      })
+      .filter(avg => avg !== null);
+
+    const overallAverageScore = paperAverages.length > 0
+      ? Math.round(paperAverages.reduce((sum, avg) => sum + avg, 0) / paperAverages.length)
+      : 0;
+
+    setStats({
+      papersCreated: papers.length,
+      totalSubmissions: subs.length,
+      evaluatedSubmissions: evaluatedSubmissions.length,
+      averageScore: overallAverageScore,
+    });
   };
 
   const handleLogout = () => {
@@ -124,41 +95,13 @@ const DashboardTeacher = () => {
   const handleDeletePaper = async (paperId: string) => {
     try {
       const token = authService.getToken();
-      const res = await fetch(`http://localhost:5000/api/papers/${paperId}`, {
-        method: 'DELETE',
+      if (!token) return;
+      await API.delete(`/papers/${paperId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (res.ok) {
-        let allSubs = dataService.getSubmissions();
-        allSubs = allSubs.filter(sub => String(sub.questionPaperId) !== String(paperId));
-        const papersRes = await fetch('http://localhost:5000/api/papers', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const papers = papersRes.ok ? await papersRes.json() : [];
-        const validPaperIds = new Set(papers.map(p => String(p.id)));
-        // Remove all orphaned submissions
-        const filteredSubs = allSubs.filter(sub => validPaperIds.has(String(sub.questionPaperId)));
-        if (papers.length === 0) {
-          localStorage.removeItem('exam-spark-submissions');
-          setSubmissions([]);
-          setStats({
-            papersCreated: 0,
-            totalSubmissions: 0,
-            evaluatedSubmissions: 0,
-            averageScore: 0
-          });
-        } else {
-          localStorage.setItem('exam-spark-submissions', JSON.stringify(filteredSubs));
-          setSubmissions(filteredSubs);
-          await loadStats(filteredSubs);
-        }
-        await fetchRecentPapers();
-        await fetchAllPapers();
-        toast({ title: 'Deleted', description: 'Question paper deleted.' });
-        fetchSubmissions();
-      } else {
-        toast({ title: 'Delete Failed', description: 'Could not delete paper.', variant: 'destructive' });
-      }
+      // Refetch all data to update the UI
+      fetchDashboardData(token);
+      toast({ title: 'Deleted', description: 'Question paper and its submissions deleted.' });
     } catch {
       toast({ title: 'Delete Failed', description: 'Could not delete paper.', variant: 'destructive' });
     }
@@ -447,7 +390,7 @@ const DashboardTeacher = () => {
                                             return;
                                           }
                                           toast({ title: "Evaluation Saved", description: "The answersheet has been evaluated." });
-                                          fetchSubmissions();
+                                          fetchDashboardData(token);
                                           setSelectedSubmission(null);
                                         }}
                                         disabled={isEvaluating}

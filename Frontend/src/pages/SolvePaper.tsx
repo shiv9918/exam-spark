@@ -39,21 +39,25 @@ const SolvePaper = () => {
     // Prevent reopening if already submitted (check backend)
     const checkSubmission = async () => {
       const token = authService.getToken();
-      const res = await fetch('http://localhost:5000/api/submissions', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const allSubs = res.ok ? await res.json() : [];
-      const userId = authState.user ? String(authState.user.id) : '';
-      const existingSubmission = allSubs.find(
-        sub => String(sub.studentId) === userId && String(sub.questionPaperId) === String(paperId)
-      );
-      if (existingSubmission) {
-        toast({
-          title: "Already Submitted",
-          description: "You have already submitted this paper.",
-          variant: "destructive",
+      try {
+        const response = await API.get('/submissions', {
+          headers: { Authorization: `Bearer ${token}` }
         });
-        navigate('/dashboard-student');
+        const allSubs = response.data;
+        const userId = authState.user ? String(authState.user.id) : '';
+        const existingSubmission = allSubs.find(
+          sub => String(sub.studentId) === userId && String(sub.questionPaperId) === String(paperId)
+        );
+        if (existingSubmission) {
+          toast({
+            title: "Already Submitted",
+            description: "You have already submitted this paper.",
+            variant: "destructive",
+          });
+          navigate('/dashboard-student');
+        }
+      } catch (error) {
+        console.error('Error checking submission:', error);
       }
     };
     checkSubmission();
@@ -117,11 +121,11 @@ const SolvePaper = () => {
   const loadPaper = () => {
     if (!paperId) return;
     const fetchPaper = async () => {
-      const res = await fetch(`http://localhost:5000/api/papers/${paperId}`, {
-        headers: { Authorization: `Bearer ${authService.getToken()}` }
-      });
-      if (res.ok) {
-        const paper = await res.json();
+      try {
+        const response = await API.get(`/papers/${paperId}`, {
+          headers: { Authorization: `Bearer ${authService.getToken()}` }
+        });
+        const paper = response.data;
         setPaper(paper);
         // Parse questions and initialize answer fields
         const parsedQuestions = parseQuestions(paper.content);
@@ -131,13 +135,13 @@ const SolvePaper = () => {
           initialAnswers[q.number] = '';
         });
         setAnswers(initialAnswers);
-      } else {
-      toast({
-        title: "Paper not found",
-        description: "The requested question paper could not be found",
-        variant: "destructive",
-      });
-      navigate('/dashboard-student');
+      } catch (error) {
+        toast({
+          title: "Paper not found",
+          description: "The requested question paper could not be found",
+          variant: "destructive",
+        });
+        navigate('/dashboard-student');
       }
     };
     fetchPaper();
@@ -166,24 +170,18 @@ const SolvePaper = () => {
     try {
       const submissionData = JSON.stringify(answers);
       const token = authService.getToken();
-      const res = await fetch('http://localhost:5000/api/submissions', {
-        method: 'POST',
+      const response = await API.post('/submissions', {
+        question_paper_id: paperId,
+        student_id: String(user!.id),
+        student_name: user!.name,
+        answers: submissionData
+      }, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          question_paper_id: paperId,
-          student_id: String(user!.id),
-          student_name: user!.name,
-          answers: submissionData
-        })
+        }
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to submit');
-      }
-      const result = await res.json();
+      
       toast({
         title: "Submission successful!",
         description: "Your answers have been submitted successfully",

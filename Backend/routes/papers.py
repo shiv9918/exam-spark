@@ -205,10 +205,20 @@ def create_submission():
 @paper_bp.route('/submissions', methods=['GET'])
 @jwt_required()
 def get_submissions():
+    claims = get_jwt()
     current_user_id = get_jwt_identity()
-    # Students can only see their own submissions
-    submissions = StudentSubmission.query.filter_by(student_id=current_user_id).all()
-    
+    role = claims.get('role')
+
+    if role == 'student':
+        # Students can only see their own submissions
+        submissions = StudentSubmission.query.filter_by(student_id=current_user_id).all()
+    elif role == 'teacher':
+        # Teachers see submissions for papers they created
+        teacher_paper_ids = db.session.query(QuestionPaper.id).filter_by(created_by=current_user_id).scalar_subquery()
+        submissions = StudentSubmission.query.filter(StudentSubmission.question_paper_id.in_(teacher_paper_ids)).all()
+    else:
+        return jsonify({"error": "Unauthorized role"}), 403
+
     result = []
     for sub in submissions:
         result.append({

@@ -18,6 +18,11 @@ def create_app():
 
     # Robust CORS setup: allow local frontend and deployed frontend
     cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:8080,http://localhost:8081').split(',')
+    
+    # Add Vercel domain for production
+    if 'https://exam-spark-t9v2.vercel.app' not in cors_origins:
+        cors_origins.append('https://exam-spark-t9v2.vercel.app')
+    
     CORS(app, origins=cors_origins, supports_credentials=True)
 
     # MOVE THIS IMPORT HERE TO AVOID CIRCULAR IMPORT

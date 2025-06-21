@@ -40,7 +40,10 @@ def generate_paper_route():
     
     try:
         gemini_api_key = os.environ.get('GEMINI_API_KEY')
-        gemini_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={gemini_api_key}"
+        if not gemini_api_key:
+            return jsonify({'error': 'GEMINI_API_KEY not configured'}), 500
+            
+        gemini_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={gemini_api_key}"
         
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
@@ -53,6 +56,11 @@ def generate_paper_route():
         }
 
         response = requests.post(gemini_api_url, json=payload)
+        
+        # Log the response for debugging
+        print(f"Gemini API Response Status: {response.status_code}")
+        print(f"Gemini API Response: {response.text}")
+        
         response.raise_for_status()
         
         data = response.json()
@@ -60,8 +68,10 @@ def generate_paper_route():
         return jsonify({'content': content})
         
     except requests.exceptions.RequestException as e:
+        print(f"Gemini API Error: {e}")
         return jsonify({'error': f"API request failed: {e}"}), 500
     except Exception as e:
+        print(f"Unexpected Error: {e}")
         return jsonify({'error': f"Failed to generate question paper: {e}"}), 500
 
 @paper_bp.route('/papers', methods=['POST', 'OPTIONS'])
@@ -245,7 +255,10 @@ def evaluate_submission_route():
     
     try:
         gemini_api_key = os.environ.get('GEMINI_API_KEY')
-        gemini_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={gemini_api_key}"
+        if not gemini_api_key:
+            return jsonify({'error': 'GEMINI_API_KEY not configured'}), 500
+            
+        gemini_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={gemini_api_key}"
         
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
@@ -258,6 +271,11 @@ def evaluate_submission_route():
         }
 
         response = requests.post(gemini_api_url, json=payload)
+        
+        # Log the response for debugging
+        print(f"Gemini Evaluation API Response Status: {response.status_code}")
+        print(f"Gemini Evaluation API Response: {response.text}")
+        
         response.raise_for_status()
         
         data = response.json()
@@ -283,6 +301,8 @@ def evaluate_submission_route():
         return jsonify(fallback_evaluation)
         
     except requests.exceptions.RequestException as e:
+        print(f"Gemini Evaluation API Error: {e}")
         return jsonify({'error': f"API request failed: {e}"}), 500
     except Exception as e:
+        print(f"Unexpected Evaluation Error: {e}")
         return jsonify({'error': f"Failed to evaluate submission: {e}"}), 500

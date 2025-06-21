@@ -7,7 +7,6 @@ import { authService } from '@/utils/auth';
 import { dataService } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, FileText, Users, BarChart3 } from 'lucide-react';
-import { evaluateWithGemini } from '@/api/gemini';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import API from '@/services/api';
 
@@ -373,25 +372,40 @@ const DashboardTeacher = () => {
                                       <Button
                                         onClick={async () => {
                                           setIsEvaluating(true);
-                                          const evaluation = await evaluateWithGemini(paper, selectedSubmission.answers);
-                                          const token = authService.getToken();
-                                          const res = await fetch(`http://localhost:5000/api/submissions/${selectedSubmission.id}`, {
-                                            method: 'PATCH',
-                                            headers: {
-                                              'Content-Type': 'application/json',
-                                              'Authorization': `Bearer ${token}`
-                                            },
-                                            body: JSON.stringify({ evaluation: { ...evaluation, evaluatedAt: new Date().toISOString() } })
-                                          });
-                                          setIsEvaluating(false);
-                                          if (!res.ok) {
-                                            const err = await res.json();
-                                            toast({ title: "Evaluation Failed", description: err.error || "Failed to update evaluation.", variant: "destructive" });
-                                            return;
+                                          try {
+                                            const token = authService.getToken();
+                                            if (!token) {
+                                              toast({ title: "Not Authenticated", description: "Please log in again.", variant: "destructive" });
+                                              return;
+                                            }
+
+                                            // Call the backend evaluation endpoint
+                                            const evaluationResponse = await API.post('/evaluate-submission', {
+                                              question: paper.content,
+                                              studentAnswer: selectedSubmission.answers,
+                                              maxMarks: paper.totalMarks || 100
+                                            }, {
+                                              headers: { Authorization: `Bearer ${token}` }
+                                            });
+
+                                            const evaluation = evaluationResponse.data;
+
+                                            // Update the submission with the evaluation
+                                            const updateResponse = await API.patch(`/submissions/${selectedSubmission.id}`, {
+                                              evaluation: { ...evaluation, evaluatedAt: new Date().toISOString() }
+                                            }, {
+                                              headers: { Authorization: `Bearer ${token}` }
+                                            });
+
+                                            toast({ title: "Evaluation Saved", description: "The answersheet has been evaluated." });
+                                            fetchDashboardData(token);
+                                            setSelectedSubmission(null);
+                                          } catch (error) {
+                                            console.error('Evaluation error:', error);
+                                            toast({ title: "Evaluation Failed", description: "Failed to evaluate submission. Please try again.", variant: "destructive" });
+                                          } finally {
+                                            setIsEvaluating(false);
                                           }
-                                          toast({ title: "Evaluation Saved", description: "The answersheet has been evaluated." });
-                                          fetchDashboardData(token);
-                                          setSelectedSubmission(null);
                                         }}
                                         disabled={isEvaluating}
                                         className="w-full"

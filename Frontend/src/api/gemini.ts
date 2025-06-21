@@ -14,6 +14,9 @@ export interface QuestionPaperParams {
 
 export async function generateQuestionPaper(params: QuestionPaperParams, token: string): Promise<string> {
   try {
+    console.log('Token being used:', token ? `${token.substring(0, 20)}...` : 'No token');
+    console.log('Request params:', params);
+    
     const response = await API.post('/generate-paper', params, {
       headers: {
         Authorization: `Bearer ${token}`
@@ -29,6 +32,7 @@ export async function generateQuestionPaper(params: QuestionPaperParams, token: 
     
   } catch (error: any) {
     console.error('Error generating question paper:', error);
+    console.error('Response data:', error.response?.data);
     const errorMsg = error.response?.data?.error || 'Failed to generate question paper. Please try again.';
     throw new Error(errorMsg);
   }

@@ -63,6 +63,7 @@ const GeneratePaper = () => {
 
   useEffect(() => {
     const authState = authService.getAuthState();
+    console.log('Auth state on load:', authState);
     if (!authState.isAuthenticated || authState.user?.role !== 'teacher') {
       navigate('/login');
       return;
@@ -109,6 +110,7 @@ const GeneratePaper = () => {
       }
 
       const token = authService.getAuthState().token;
+      console.log('Token before API call:', token ? `${token.substring(0, 20)}...` : 'No token');
       if (!token) {
         toast({
           title: "Not Authenticated",

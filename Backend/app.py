@@ -18,14 +18,13 @@ def create_app():
     db.init_app(app)
     jwt = JWTManager(app)
 
-    # Robust CORS setup: allow local frontend and deployed frontend
-    cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:8080,http://localhost:8081').split(',')
-    
-    # Add Vercel domain for production
-    if 'https://exam-spark-t9v2.vercel.app' not in cors_origins:
-        cors_origins.append('https://exam-spark-t9v2.vercel.app')
-    if 'https://exam-sparks.vercel.app' not in cors_origins:
-        cors_origins.append('https://exam-sparks.vercel.app')
+    # Robust CORS setup: use a hardcoded list to avoid environment issues
+    cors_origins = [
+        "http://localhost:8080",
+        "http://localhost:8081",
+        "https://exam-spark-t9v2.vercel.app", # Old Vercel domain
+        "https://exam-sparks.vercel.app"    # New Vercel domain
+    ]
     
     CORS(app, origins=cors_origins, supports_credentials=True)
 

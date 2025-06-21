@@ -160,7 +160,6 @@ const GeneratePaper = () => {
         difficulty: formData.difficulty,
         board: formData.board,
         content: generatedPaper,
-        created_by: user.id,
         chapters: formData.chapters
       };
       console.log('Payload sent to backend:', payload);

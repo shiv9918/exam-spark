@@ -86,10 +86,8 @@ def create_paper():
         print("After JWT verify")
         data = request.get_json()
         print('Received data:', data)
-        print("Type of subject:", type(data.get('subject')))
-        print("Value of subject:", data.get('subject'))
-        user = get_jwt_identity()
-        print("User identity:", user)
+        current_user_id = get_jwt_identity()
+        print("User identity:", current_user_id)
         print("Before creating QuestionPaper")
         paper = QuestionPaper(
             subject=data['subject'],
@@ -99,7 +97,7 @@ def create_paper():
             board=data['board'],
             content=data['content'],
             chapters=data['chapters'],
-            created_by=data['created_by']
+            created_by=current_user_id
         )
         print("Paper object created")
         db.session.add(paper)
@@ -118,8 +116,9 @@ def create_paper():
 @jwt_required()
 def get_papers():
     print("GET /papers endpoint called")
-    papers = QuestionPaper.query.all()
-    print(f"Found {len(papers)} papers in database")
+    current_user_id = get_jwt_identity()
+    papers = QuestionPaper.query.filter_by(created_by=current_user_id).all()
+    print(f"Found {len(papers)} papers in database for user {current_user_id}")
     
     result = [{
         'id': p.id,

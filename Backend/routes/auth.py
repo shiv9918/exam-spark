@@ -8,6 +8,10 @@ from flask import current_app
 
 auth_bp = Blueprint('auth', __name__)
 
+@auth_bp.route('/ping', methods=['GET'])
+def ping():
+    return jsonify({'message': 'pong'}), 200
+
 @auth_bp.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json()

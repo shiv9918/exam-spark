@@ -20,11 +20,6 @@ def create_app():
     cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:8080,http://localhost:8081').split(',')
     CORS(app, origins=cors_origins, supports_credentials=True)
 
-    # Test route to verify backend and CORS
-    @app.route('/api/ping')
-    def ping():
-        return {"message": "pong"}, 200
-
     # MOVE THIS IMPORT HERE TO AVOID CIRCULAR IMPORT
     from routes.auth import auth_bp
     from routes.papers import paper_bp

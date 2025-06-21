@@ -27,19 +27,18 @@ const DashboardStudent = () => {
     setUser(authState.user);
 
     const token = authService.getToken();
-    if (token && authState.user.id) {
-      fetchStudentData(token, authState.user.id);
+    if (token) {
+      fetchStudentData(token);
     }
   }, [navigate]);
 
-  const fetchStudentData = async (token: string, studentId: number) => {
+  const fetchStudentData = async (token: string) => {
     try {
-      const [allPapers, allSubmissions] = await Promise.all([
+      const [allPapers, studentSubmissions] = await Promise.all([
         dataService.getQuestionPapers(token),
         API.get('/submissions', { headers: { Authorization: `Bearer ${token}` } }).then(res => res.data)
       ]);
       setPapers(allPapers);
-      const studentSubmissions = allSubmissions.filter(sub => sub.studentId === studentId);
       setSubmissions(studentSubmissions);
     } catch (error) {
       console.error("Failed to fetch student data", error);

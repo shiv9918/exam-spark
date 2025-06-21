@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify
 from models.question_paper import QuestionPaper
 from db import db
-from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request
+from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request, get_jwt
 from models.student_submission import StudentSubmission
 from datetime import datetime
 import os
@@ -116,9 +116,18 @@ def create_paper():
 @jwt_required()
 def get_papers():
     print("GET /papers endpoint called")
-    current_user_id = get_jwt_identity()
-    papers = QuestionPaper.query.filter_by(created_by=current_user_id).all()
-    print(f"Found {len(papers)} papers in database for user {current_user_id}")
+    claims = get_jwt()
+    is_student = claims.get('role') == 'student'
+    
+    if is_student:
+        # Students can see all papers
+        papers = QuestionPaper.query.all()
+        print(f"Found {len(papers)} papers in database for student")
+    else:
+        # Teachers only see their own papers
+        current_user_id = get_jwt_identity()
+        papers = QuestionPaper.query.filter_by(created_by=current_user_id).all()
+        print(f"Found {len(papers)} papers in database for user {current_user_id}")
     
     result = [{
         'id': p.id,
@@ -196,7 +205,10 @@ def create_submission():
 @paper_bp.route('/submissions', methods=['GET'])
 @jwt_required()
 def get_submissions():
-    submissions = StudentSubmission.query.all()
+    current_user_id = get_jwt_identity()
+    # Students can only see their own submissions
+    submissions = StudentSubmission.query.filter_by(student_id=current_user_id).all()
+    
     result = []
     for sub in submissions:
         result.append({

@@ -115,6 +115,17 @@ const ViewSubmissions = () => {
       }
     } catch (error) {
       console.error('Evaluation error:', error);
+      
+      // Check if token has expired
+      if (error.response?.status === 401 && error.response?.data?.msg === 'Token has expired') {
+        // Clear the expired token and redirect to login
+        sessionStorage.removeItem('exam-spark-token');
+        sessionStorage.removeItem('exam-spark-user');
+        window.location.href = '/login';
+        toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+        return;
+      }
+      
       toast({ title: "Error", description: "An unexpected error occurred during evaluation.", variant: 'destructive' });
     } finally {
       setIsEvaluating(false);

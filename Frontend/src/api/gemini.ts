@@ -33,6 +33,16 @@ export async function generateQuestionPaper(params: QuestionPaperParams, token: 
   } catch (error: any) {
     console.error('Error generating question paper:', error);
     console.error('Response data:', error.response?.data);
+    
+    // Check if token has expired
+    if (error.response?.status === 401 && error.response?.data?.msg === 'Token has expired') {
+      // Clear the expired token and redirect to login
+      sessionStorage.removeItem('exam-spark-token');
+      sessionStorage.removeItem('exam-spark-user');
+      window.location.href = '/login';
+      throw new Error('Your session has expired. Please log in again.');
+    }
+    
     const errorMsg = error.response?.data?.error || 'Failed to generate question paper. Please try again.';
     throw new Error(errorMsg);
   }

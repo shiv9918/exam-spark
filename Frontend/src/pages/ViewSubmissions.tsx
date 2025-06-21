@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useTheme } from '@/contexts/ThemeContext';
 import { authService } from '@/utils/auth';
 import { dataService, StudentSubmission, QuestionPaper } from '@/services/dataService';
-import { evaluateWithGemini } from '@/api/gemini';
 import { useToast } from '@/hooks/use-toast';
 import { FileText, User, Clock, CheckCircle } from 'lucide-react';
 import API from '@/services/api';
@@ -34,22 +33,31 @@ const ViewSubmissions = () => {
 
   const fetchPapers = async () => {
     const token = authService.getToken();
-    const res = await fetch('http://localhost:5000/api/papers', {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const papers = res.ok ? await res.json() : [];
-    setPapers(papers);
+    try {
+      const response = await API.get('/papers', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setPapers(response.data);
+    } catch (error) {
+      console.error('Failed to fetch papers:', error);
+      setPapers([]);
+    }
   };
 
   const loadData = async () => {
     const token = authService.getToken();
-    const res = await fetch('http://localhost:5000/api/submissions', {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const allSubmissions = res.ok ? await res.json() : [];
-    const validPaperIds = new Set(papers.map(p => String(p.id)));
-    const filteredSubmissions = allSubmissions.filter(sub => validPaperIds.has(String(sub.questionPaperId)));
-    setSubmissions(filteredSubmissions);
+    try {
+      const response = await API.get('/submissions', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const allSubmissions = response.data;
+      const validPaperIds = new Set(papers.map(p => String(p.id)));
+      const filteredSubmissions = allSubmissions.filter(sub => validPaperIds.has(String(sub.questionPaperId)));
+      setSubmissions(filteredSubmissions);
+    } catch (error) {
+      console.error('Failed to fetch submissions:', error);
+      setSubmissions([]);
+    }
   };
 
   const getPaperTitle = (paperId: string) => {
@@ -74,13 +82,26 @@ const ViewSubmissions = () => {
 
     setIsEvaluating(true);
     try {
-      const evaluation = await evaluateWithGemini(paper.content, submission.answers);
-
       const token = authService.getToken();
-      if (!token) return;
+      if (!token) {
+        toast({ title: "Not Authenticated", description: "Please log in again.", variant: "destructive" });
+        return;
+      }
 
+      // Call the backend evaluation endpoint
+      const evaluationResponse = await API.post('/evaluate-submission', {
+        question: paper.content,
+        studentAnswer: submission.answers,
+        maxMarks: paper.totalMarks || 100
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const evaluation = evaluationResponse.data;
+
+      // Update the submission with the evaluation
       const res = await API.patch(`/submissions/${submission.id}`,
-        { evaluation },
+        { evaluation: { ...evaluation, evaluatedAt: new Date().toISOString() } },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -93,6 +114,7 @@ const ViewSubmissions = () => {
         toast({ title: "Error", description: "Failed to save evaluation.", variant: 'destructive' });
       }
     } catch (error) {
+      console.error('Evaluation error:', error);
       toast({ title: "Error", description: "An unexpected error occurred during evaluation.", variant: 'destructive' });
     } finally {
       setIsEvaluating(false);

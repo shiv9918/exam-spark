@@ -108,7 +108,18 @@ const GeneratePaper = () => {
         return;
       }
 
-      const paper = await generateQuestionPaper(formData);
+      const token = authService.getAuthState().token;
+      if (!token) {
+        toast({
+          title: "Not Authenticated",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      const paper = await generateQuestionPaper(formData, token);
       setGeneratedPaper(paper);
       
       toast({

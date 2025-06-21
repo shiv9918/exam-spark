@@ -5,8 +5,64 @@ from db import db
 from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request
 from models.student_submission import StudentSubmission
 from datetime import datetime
+import os
+import requests
+import json
 
 paper_bp = Blueprint('paper', __name__)
+
+@paper_bp.route('/generate-paper', methods=['POST'])
+@jwt_required()
+def generate_paper_route():
+    params = request.get_json()
+    prompt = f"""
+        Generate a comprehensive question paper with the following specifications:
+        
+        Subject: {params.get('subject')}
+        Class: {params.get('class')}
+        Total Marks: {params.get('totalMarks')}
+        Difficulty Level: {params.get('difficulty')}
+        Board: {params.get('board')}
+        Chapters: {', '.join(params.get('chapters', []))}
+        {f"Specific Topic: {params.get('specificTopic')}" if params.get('specificTopic') else ''}
+        {f"Special Instructions: {params.get('instructions')}" if params.get('instructions') else ''}
+        Paper Pattern: {params.get('paperPattern')}
+        
+        Please create a well-structured question paper in markdown format with:
+        1. Header with subject, class, time duration, and marks
+        2. Clear instructions for students
+        3. Questions divided by marks (1, 2, 3, 5, 10 marks etc.)
+        4. Proper numbering and formatting
+        5. Include a mix of question types based on the pattern specified
+        
+        Make sure the total marks add up to exactly {params.get('totalMarks')} marks.
+    """
+    
+    try:
+        gemini_api_key = os.environ.get('GEMINI_API_KEY')
+        gemini_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={gemini_api_key}"
+        
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.7,
+                "topK": 40,
+                "topP": 0.95,
+                "maxOutputTokens": 2048,
+            }
+        }
+
+        response = requests.post(gemini_api_url, json=payload)
+        response.raise_for_status()
+        
+        data = response.json()
+        content = data.get("candidates")[0].get("content").get("parts")[0].get("text")
+        return jsonify({'content': content})
+        
+    except requests.exceptions.RequestException as e:
+        return jsonify({'error': f"API request failed: {e}"}), 500
+    except Exception as e:
+        return jsonify({'error': f"Failed to generate question paper: {e}"}), 500
 
 @paper_bp.route('/papers', methods=['POST', 'OPTIONS'])
 def create_paper():

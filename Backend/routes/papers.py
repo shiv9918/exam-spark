@@ -76,7 +76,7 @@ def generate_paper_route():
 
 @paper_bp.route('/papers', methods=['POST', 'OPTIONS'])
 def create_paper():
-    print("Route hit")
+    print("POST /papers endpoint called")
     if request.method == 'OPTIONS':
         print("OPTIONS request")
         return '', 200
@@ -106,6 +106,7 @@ def create_paper():
         print("Paper added to session")
         db.session.commit()
         print("Paper committed to DB")
+        print(f"Paper saved with ID: {paper.id}")
         return jsonify({'message': 'Paper created', 'paper_id': paper.id})
     except Exception as e:
         print('Error creating paper:', repr(e))
@@ -116,7 +117,10 @@ def create_paper():
 @paper_bp.route('/papers', methods=['GET'])
 @jwt_required()
 def get_papers():
+    print("GET /papers endpoint called")
     papers = QuestionPaper.query.all()
+    print(f"Found {len(papers)} papers in database")
+    
     result = [{
         'id': p.id,
         'subject': p.subject,
@@ -129,6 +133,9 @@ def get_papers():
         'createdBy': p.created_by,
         'createdAt': p.created_at.isoformat()
     } for p in papers]
+    
+    print(f"Returning {len(result)} papers")
+    print("Paper IDs:", [p['id'] for p in result])
     return jsonify(result)
 
 @paper_bp.route('/papers/<int:paper_id>', methods=['GET'])

@@ -1,3 +1,5 @@
+import API from '../services/api';
+
 export interface User {
   id: number;
   email: string;
@@ -10,8 +12,6 @@ export interface AuthState {
   isAuthenticated: boolean;
   token: string | null;
 }
-
-const API_URL = 'http://localhost:5000'; // Adjust if deployed
 
 class AuthService {
   getAuthState(): AuthState {
@@ -29,45 +29,36 @@ class AuthService {
 
   async login(email: string, password: string): Promise<{ success: boolean; user?: User; error?: string }> {
     try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        return { success: false, error: data.error || 'Login failed' };
-      }
+      const res = await API.post('/auth/login', { email, password });
+      const data = res.data;
 
       sessionStorage.setItem('exam-spark-token', data.token);
       sessionStorage.setItem('exam-spark-user', JSON.stringify(data.user));
 
       return { success: true, user: data.user };
-    } catch (err) {
-      return { success: false, error: 'Network error' };
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error || 'Network error';
+      return { success: false, error: errorMsg };
     }
   }
 
   async signup(email: string, password: string, name: string, role: 'teacher' | 'student'): Promise<{ success: boolean; user?: User; error?: string }> {
     try {
-      const res = await fetch(`${API_URL}/api/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name, role: role.toLowerCase() })
+      const res = await API.post('/auth/signup', {
+        email,
+        password,
+        name,
+        role: role.toLowerCase(),
       });
-
-      const data = await res.json();
-      if (!res.ok) {
-        return { success: false, error: data.error || 'Signup failed' };
-      }
+      const data = res.data;
 
       sessionStorage.setItem('exam-spark-token', data.token);
       sessionStorage.setItem('exam-spark-user', JSON.stringify(data.user));
 
       return { success: true, user: data.user };
-    } catch (err) {
-      return { success: false, error: 'Network error' };
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error || 'Network error';
+      return { success: false, error: errorMsg };
     }
   }
 

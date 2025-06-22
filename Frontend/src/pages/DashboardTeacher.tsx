@@ -8,7 +8,8 @@ import { dataService } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, FileText, Users, BarChart3 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import API from '@/services/api';
+import API, { SERVER_BASE_URL } from '@/services/api';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const DashboardTeacher = () => {
   const [user, setUser] = useState(authService.getAuthState().user);
@@ -117,7 +118,7 @@ const DashboardTeacher = () => {
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="text-2xl font-bold gradient-text">ExamSpark</div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600 dark:text-gray-300">
+            <span className="text-sm font-bold text-gray-700 dark:text-gray-200">
               Welcome, {user.name}
             </span>
             <Button
@@ -140,26 +141,38 @@ const DashboardTeacher = () => {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">
-            <span className="gradient-text">Teacher Dashboard</span>
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            Manage your question papers and track student performance
-          </p>
-        </div>
+        <div className="mb-8 flex justify-between items-start">
+          {/* Left Column: Title, Name, and Actions */}
+          <div className="flex flex-col gap-4">
+            <div>
+              <h1 className="text-3xl font-bold">
+                <span className="gradient-text">Teacher Dashboard</span>
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300 mt-1">
+                Manage your question papers and track student performance
+              </p>
+            </div>
+            <h2 className="text-2xl lg:text-4xl font-semibold text-gray-800 dark:text-gray-100">
+              {user.name}
+            </h2>
+            <div className="mt-2">
+                <Button
+                  onClick={() => navigate('/generate-paper')}
+                  className="bg-primary hover:bg-primary/90 flex items-center gap-2"
+                  size="lg"
+                >
+                  <Plus className="h-5 w-5" />
+                  Create Question Paper
+                </Button>
+            </div>
+          </div>
 
-        {/* Quick Actions */}
-        <div className="mb-8">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button
-              onClick={() => navigate('/generate-paper')}
-              className="bg-primary hover:bg-primary/90 flex items-center gap-2"
-              size="lg"
-            >
-              <Plus className="h-5 w-5" />
-              Create Question Paper
-            </Button>
+          {/* Right Column: Profile Picture */}
+          <div className="flex flex-col items-center">
+            <Avatar className="h-32 w-32 lg:h-40 lg:w-40 border-4 border-gray-200 dark:border-gray-700 transition-all duration-300 ease-in-out hover:scale-110 hover:-rotate-6 shadow-lg hover:shadow-2xl">
+              <AvatarImage src={user?.profile_pic_url ? `${SERVER_BASE_URL}/${user.profile_pic_url}` : undefined} alt={user?.name} className="object-cover" />
+              <AvatarFallback className="text-4xl lg:text-6xl">{user?.name?.[0]}</AvatarFallback>
+            </Avatar>
           </div>
         </div>
 

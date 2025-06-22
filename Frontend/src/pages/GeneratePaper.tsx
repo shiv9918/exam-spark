@@ -243,7 +243,7 @@ const GeneratePaper = () => {
 
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Form Section */}
-          <Card className="edu-card">
+          <Card className="edu-card-no-hover">
             <CardHeader>
               <CardTitle>Paper Configuration</CardTitle>
               <CardDescription>
@@ -383,7 +383,7 @@ const GeneratePaper = () => {
 
                 <Button
                   type="submit"
-                  className="w-full bg-primary hover:bg-primary/90"
+                  className="w-full bg-primary"
                   disabled={isLoading}
                 >
                   {isLoading ? "Generating..." : "Generate Question Paper"}
@@ -393,7 +393,7 @@ const GeneratePaper = () => {
           </Card>
 
           {/* Generated Paper Section */}
-          <Card className="edu-card">
+          <Card className="edu-card-no-hover">
             <CardHeader>
               <CardTitle>Generated Question Paper</CardTitle>
               <CardDescription>

@@ -4,6 +4,7 @@ from models.question_paper import QuestionPaper
 from db import db
 from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request, get_jwt
 from models.student_submission import StudentSubmission
+from models.user import User
 from datetime import datetime
 import os
 import requests
@@ -64,7 +65,34 @@ def generate_paper_route():
         response.raise_for_status()
         
         data = response.json()
-        content = data.get("candidates")[0].get("content").get("parts")[0].get("text")
+        
+        # Enhanced error handling for Gemini response
+        if not data.get("candidates"):
+            # Check for a prompt feedback block if no candidates are returned
+            prompt_feedback = data.get("promptFeedback")
+            if prompt_feedback:
+                error_info = f"Content generation blocked. Reason: {prompt_feedback.get('blockReason')}. Safety ratings: {prompt_feedback.get('safetyRatings')}"
+                print(f"Gemini API Error: {error_info}")
+                return jsonify({'error': error_info}), 500
+            
+            # General error if no candidates and no specific feedback
+            print("Gemini API Error: No candidates in response and no prompt feedback.")
+            return jsonify({'error': 'Failed to generate content from Gemini API: No candidates in response.'}), 500
+
+        candidate = data["candidates"][0]
+        finish_reason = candidate.get("finishReason")
+        
+        if finish_reason and finish_reason != "STOP":
+            error_info = f"Content generation finished for a reason other than 'STOP'. Reason: {finish_reason}"
+            print(f"Gemini API Warning: {error_info}")
+            # Potentially return an error or handle as a partial response
+            # For now, we will still try to get content but log the warning.
+
+        if not (candidate.get("content") and candidate["content"].get("parts")):
+            print("Gemini API Error: Malformed response, 'content' or 'parts' missing.")
+            return jsonify({'error': 'Malformed response from Gemini API.'}), 500
+            
+        content = candidate["content"]["parts"][0].get("text", "")
         return jsonify({'content': content})
         
     except requests.exceptions.RequestException as e:
@@ -117,15 +145,20 @@ def create_paper():
 def get_papers():
     print("GET /papers endpoint called")
     claims = get_jwt()
+    current_user_id = get_jwt_identity()
     is_student = claims.get('role') == 'student'
     
     if is_student:
-        # Students can see all papers
-        papers = QuestionPaper.query.all()
-        print(f"Found {len(papers)} papers in database for student")
+        # Students only see papers for their class
+        user = User.query.get(current_user_id)
+        if user and user.class_name:
+            papers = QuestionPaper.query.filter_by(class_name=user.class_name).all()
+            print(f"Found {len(papers)} papers for student {current_user_id} in class {user.class_name}")
+        else:
+            papers = [] # No class name, so no papers
+            print(f"Student {current_user_id} has no class_name, returning 0 papers.")
     else:
         # Teachers only see their own papers
-        current_user_id = get_jwt_identity()
         papers = QuestionPaper.query.filter_by(created_by=current_user_id).all()
         print(f"Found {len(papers)} papers in database for user {current_user_id}")
     

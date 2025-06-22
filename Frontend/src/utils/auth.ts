@@ -5,6 +5,9 @@ export interface User {
   email: string;
   role: 'teacher' | 'student';
   name: string;
+  profile_pic_url?: string;
+  roll_no?: string;
+  class_name?: string;
 }
 
 export interface AuthState {
@@ -42,13 +45,21 @@ class AuthService {
     }
   }
 
-  async signup(email: string, password: string, name: string, role: 'teacher' | 'student'): Promise<{ success: boolean; user?: User; error?: string }> {
+  async signup(email: string, password: string, name: string, role: 'teacher' | 'student', profilePic: File, roll_no: string, class_name: string): Promise<{ success: boolean; user?: User; error?: string }> {
     try {
-      const res = await API.post('/auth/signup', {
-        email,
-        password,
-        name,
-        role: role.toLowerCase(),
+      const formData = new FormData();
+      formData.append('email', email);
+      formData.append('password', password);
+      formData.append('name', name);
+      formData.append('role', role.toLowerCase());
+      formData.append('profile_pic', profilePic);
+      formData.append('roll_no', roll_no);
+      formData.append('class_name', class_name);
+
+      const res = await API.post('/auth/signup', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
       const data = res.data;
 

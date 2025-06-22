@@ -15,8 +15,12 @@ const Signup = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'student' as 'teacher' | 'student'
+    role: 'student' as 'teacher' | 'student',
+    roll_no: '',
+    class_name: ''
   });
+  const [profilePic, setProfilePic] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -58,10 +62,41 @@ const Signup = () => {
       return;
     }
 
+    if (formData.role === 'student') {
+      if (!formData.roll_no.trim()) {
+        toast({
+          title: "Roll Number Required",
+          description: "Please enter your roll number.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+      if (!formData.class_name.trim()) {
+        toast({
+          title: "Class Name Required",
+          description: "Please enter your class name.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+    }
+
     if (formData.password !== formData.confirmPassword) {
       toast({
         title: "Error",
         description: "Passwords do not match",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    if (!profilePic) {
+      toast({
+        title: "Profile Picture Required",
+        description: "Please select a profile picture to upload.",
         variant: "destructive",
       });
       setIsLoading(false);
@@ -73,7 +108,10 @@ const Signup = () => {
         formData.email,
         formData.password,
         formData.name,
-        formData.role
+        formData.role,
+        profilePic,
+        formData.roll_no,
+        formData.class_name
       );
       
       if (result.success && result.user) {
@@ -110,6 +148,18 @@ const Signup = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setProfilePic(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
     <div className="min-h-screen auth-gradient flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
@@ -143,6 +193,29 @@ const Signup = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2 text-center">
+                <Label htmlFor="profile_pic">Profile Picture</Label>
+                <div className="mt-2 flex justify-center">
+                  {preview ? (
+                    <img
+                      src={preview}
+                      alt=""
+                      className="w-24 h-24 rounded-full object-cover border-4 border-gray-200 dark:border-gray-700"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 rounded-full border-4 border-gray-200 dark:border-gray-700" />
+                  )}
+                </div>
+                <Input
+                  id="profile_pic"
+                  type="file"
+                  onChange={handleFileChange}
+                  required
+                  className="w-full mt-2"
+                  accept="image/png, image/jpeg, image/gif"
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <Input
@@ -181,6 +254,35 @@ const Signup = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              {formData.role === 'student' && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="roll_no">Roll Number</Label>
+                    <Input
+                      id="roll_no"
+                      type="text"
+                      placeholder="Enter your roll number"
+                      value={formData.roll_no}
+                      onChange={(e) => handleInputChange('roll_no', e.target.value)}
+                      required={formData.role === 'student'}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="class_name">Class Name</Label>
+                    <Input
+                      id="class_name"
+                      type="text"
+                      placeholder="Enter your class name (e.g., 9, 10, 12A)"
+                      value={formData.class_name}
+                      onChange={(e) => handleInputChange('class_name', e.target.value)}
+                      required={formData.role === 'student'}
+                      className="w-full"
+                    />
+                  </div>
+                </>
+              )}
               
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>

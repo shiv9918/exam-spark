@@ -248,31 +248,25 @@ const DashboardTeacher = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentPapers.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">
-                  No question papers created yet. Click "Create Question Paper" to get started.
-                </p>
-              ) : (
-                recentPapers.map((paper, index) => (
-                  <div
-                    key={paper.id || index}
-                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                  >
-                    <div>
-                      <h3 className="font-semibold">{paper.subject} - Class {paper.class}</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">
+            {recentPapers.length > 0 ? (
+              <div className="grid md:grid-cols-3 gap-4">
+                {recentPapers.map((paper: any) => (
+                  <Card key={paper.id} className="edu-card edu-card-no-hover overflow-hidden">
+                    <CardHeader>
+                      <CardTitle className="truncate">{paper.title}</CardTitle>
+                      <CardDescription>Class: {paper.class_name}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-sm text-gray-600 dark:text-gray-300">
                         Created on {new Date(paper.createdAt).toLocaleDateString()}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {paper.board} • {paper.difficulty} • {paper.totalMarks} marks
-                      </p>
-                    </div>
-                    <div className="text-right flex flex-col items-end gap-2">
-                      <div className="font-semibold text-primary">
-                        Available to students
                       </div>
-                      <div className="flex gap-2">
+                      <div className="text-xs text-gray-500">
+                        {paper.board} • {paper.difficulty} • {paper.totalMarks} marks
+                      </div>
+                      <div className="mt-4 flex justify-between items-center">
+                        <div className="font-semibold text-primary">
+                          Available to students
+                        </div>
                         <Button
                           variant="destructive"
                           size="sm"
@@ -282,11 +276,15 @@ const DashboardTeacher = () => {
                           Delete
                         </Button>
                       </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-gray-500 py-8">
+                No question papers created yet. Click "Create Question Paper" to get started.
+              </p>
+            )}
           </CardContent>
         </Card>
 

@@ -165,7 +165,7 @@ const DashboardStudent = () => {
         </div>
 
         {/* Question Papers */}
-        <Card className="edu-card">
+        <Card className="edu-card edu-card-no-hover">
           <CardHeader>
             <CardTitle>Available Question Papers</CardTitle>
             <CardDescription>

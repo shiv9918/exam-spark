@@ -251,7 +251,7 @@ const DashboardTeacher = () => {
             {recentPapers.length > 0 ? (
               <div className="grid md:grid-cols-3 gap-4">
                 {recentPapers.map((paper: any) => (
-                  <Card key={paper.id} className="edu-card edu-card-no-hover overflow-hidden">
+                  <Card key={paper.id} className="edu-card overflow-hidden">
                     <CardHeader>
                       <CardTitle className="truncate">{paper.title}</CardTitle>
                       <CardDescription>Class: {paper.class_name}</CardDescription>

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTheme } from '@/contexts/ThemeContext';
 import { authService } from '@/utils/auth';
 import { dataService, QuestionPaper, StudentSubmission } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
-import { FileText, CheckCircle, Clock } from 'lucide-react';
+import { FileText, CheckCircle, Clock, LineChart } from 'lucide-react';
 import API, { SERVER_BASE_URL } from '@/services/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -52,7 +52,7 @@ const DashboardStudent = () => {
       title: "Logged out",
       description: "You have been successfully logged out",
     });
-    navigate('/');
+    navigate('/login');
   };
 
   const hasSubmitted = (paperId: string) => {
@@ -116,6 +116,12 @@ const DashboardStudent = () => {
               <div className="text-base text-gray-500 dark:text-gray-400 mt-1">
                 {user.roll_no && <span>Roll No: {user.roll_no}</span>}
                 {user.class_name && <span className="ml-4">Class: {user.class_name}</span>}
+              </div>
+              <div className="mt-4">
+                <Button onClick={() => navigate('/performance-analytics')} className="bg-primary hover:bg-primary/90">
+                  <LineChart className="h-4 w-4 mr-2" />
+                  View My Performance
+                </Button>
               </div>
             </div>
           </div>
@@ -208,6 +214,14 @@ const DashboardStudent = () => {
                                   ? Object.entries(submission.evaluation.scoreBreakdown).map(([k, v]) => `${k}: ${v}`).join(', ')
                                   : submission.evaluation.scoreBreakdown}</div>
                                 <div className="text-xs text-gray-500">Evaluated on: {submission.evaluation.evaluatedAt && new Date(submission.evaluation.evaluatedAt).toLocaleString()}</div>
+                                <div className="mt-3">
+                                  <Link to={`/performance-analytics/${submission.id}`}>
+                                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+                                      <LineChart className="h-4 w-4 mr-2" />
+                                      View Detailed Analytics
+                                    </Button>
+                                  </Link>
+                                </div>
                               </>
                             ) : (
                               <div className="text-yellow-700 dark:text-yellow-300">Your answersheet has been submitted. Please wait for teacher evaluation.</div>
@@ -217,12 +231,12 @@ const DashboardStudent = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         {status === 'evaluated' && (
-                          <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                          <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 px-2 py-1 rounded-full">
                             Evaluated
                           </span>
                         )}
                         {status === 'submitted' && (
-                          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                          <span className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100 px-2 py-1 rounded-full">
                             Submitted
                           </span>
                         )}
@@ -237,10 +251,9 @@ const DashboardStudent = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            style={{ marginLeft: '24px', backgroundColor: '#dc2626', color: '#fff' }}
                             onClick={() => setOpenResultPaperId(openResultPaperId === paper.id ? null : paper.id)}
                         >
-                            Marks
+                            View Result
                         </Button>
                         )}
                       </div>

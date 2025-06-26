@@ -1,113 +1,114 @@
 import API from './api';
+import { authService } from '@/utils/auth';
 
 export interface QuestionPaper {
   id: string;
   subject: string;
-  class: string;
-  totalMarks: number;
+  class_name: string;
+  total_marks: number;
   difficulty: string;
   board: string;
   content: string;
-  createdBy: string;
-  createdAt: string;
   chapters: string[];
+  created_by: number;
+  created_at: string;
+  class: string;
+  totalMarks: number;
+  createdAt: string;
 }
 
 export interface StudentSubmission {
   id: string;
   questionPaperId: string;
-  studentId: string;
+  studentId: number;
   studentName: string;
   answers: string;
   submittedAt: string;
   evaluated: boolean;
-  evaluation?: {
-    percentage: number;
-    grade: string;
-    feedback: string;
-    scoreBreakdown: string;
-    evaluatedAt: string;
-  };
+  evaluation?: any;
+  paper?: any;
 }
 
-class DataService {
-  private readonly PAPERS_KEY = 'exam-spark-papers';
-  private readonly SUBMISSIONS_KEY = 'exam-spark-submissions';
-
-  // Question Papers
-  async saveQuestionPaper(paper: any, token: string): Promise<QuestionPaper> {
-    const res = await API.post('/papers', paper, {
-    headers: {
-      'Authorization': `Bearer ${token}`
-      }
-  });
-    if (res.status !== 200 && res.status !== 201) throw new Error('Failed to save question paper');
-    const result = res.data;
-  return { ...paper, id: result.paper_id, createdAt: new Date().toISOString() };
-}
-
-  async getQuestionPapers(token: string): Promise<QuestionPaper[]> {
+export const dataService = {
+  getQuestionPapers: async (token: string): Promise<QuestionPaper[]> => {
     try {
-      const res = await API.get('/papers', {
+      const response = await API.get('/papers', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      return res.data;
+      return response.data;
     } catch (error) {
       console.error('Failed to fetch question papers:', error);
       return [];
     }
-  }
+  },
 
-  async getQuestionPaperById(id: string, token: string): Promise<QuestionPaper | null> {
+  getSubmissionDetails: async (submissionId: string, token: string): Promise<StudentSubmission | null> => {
     try {
-      const res = await API.get(`/papers/${id}`, {
+      const response = await API.get(`/submission/${submissionId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (res.status === 200) {
-        return res.data;
-      }
-      return null;
-    } catch {
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch submission details:', error);
       return null;
     }
-  }
+  },
 
-  // Student Submissions
-  saveSubmission(submission: Omit<StudentSubmission, 'id' | 'submittedAt' | 'evaluated'>): StudentSubmission {
-    const submissions = this.getSubmissions();
-    const newSubmission: StudentSubmission = {
-      ...submission,
-      id: `submission_${Date.now()}`,
-      submittedAt: new Date().toISOString(),
-      evaluated: false
+  solveQuestionPaper: async (paperId: string, answers: any, token: string) => {
+    const authState = authService.getAuthState();
+    if (!authState.user) {
+      throw new Error("User not authenticated");
+    }
+    const payload = {
+      question_paper_id: paperId,
+      student_id: authState.user.id,
+      student_name: authState.user.name,
+      answers: JSON.stringify(answers),
     };
-    submissions.push(newSubmission);
-    localStorage.setItem(this.SUBMISSIONS_KEY, JSON.stringify(submissions));
-    return newSubmission;
-  }
+    return await API.post('/submissions', payload, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
 
-  getSubmissions(): StudentSubmission[] {
+  viewSubmissions: async (paperId: string, token: string): Promise<StudentSubmission[]> => {
     try {
-      const submissions = localStorage.getItem(this.SUBMISSIONS_KEY);
-      return submissions ? JSON.parse(submissions) : [];
+      const response = await API.get(`/submissions?paper_id=${paperId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
     } catch (error) {
+      console.error('Failed to fetch submissions:', error);
       return [];
     }
-  }
+  },
 
-  getSubmissionsByStudent(studentId: string): StudentSubmission[] {
-    return this.getSubmissions().filter(sub => sub.studentId === studentId);
-  }
+  evaluateSubmission: async (submissionId: string, evaluationData: any, token: string) => {
+    return await API.patch(`/submissions/${submissionId}`, evaluationData, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
 
-  updateSubmissionEvaluation(submissionId: string, evaluation: StudentSubmission['evaluation']): void {
-    const submissions = this.getSubmissions();
-    const submissionIndex = submissions.findIndex(sub => sub.id === submissionId);
-    if (submissionIndex !== -1) {
-      submissions[submissionIndex].evaluation = evaluation;
-      submissions[submissionIndex].evaluated = true;
-      localStorage.setItem(this.SUBMISSIONS_KEY, JSON.stringify(submissions));
+  getAllSubmissions: async (token: string): Promise<StudentSubmission[]> => {
+    try {
+      const response = await API.get('/submissions', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch all submissions:', error);
+      return [];
+    }
+  },
+
+  saveQuestionPaper: async (payload: any, token: string) => {
+    try {
+      const response = await API.post('/papers', payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to save question paper:', error);
+      throw error;
     }
   }
-}
-
-export const dataService = new DataService();
+};

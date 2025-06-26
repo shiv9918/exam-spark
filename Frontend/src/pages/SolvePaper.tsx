@@ -200,7 +200,7 @@ const SolvePaper = () => {
 
   const handleLogout = () => {
     authService.logout();
-    navigate('/');
+    navigate('/login');
   };
 
   if (!user || !paper) {

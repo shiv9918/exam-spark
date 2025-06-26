@@ -11,6 +11,7 @@ class QuestionPaper(db.Model):
     difficulty = db.Column(db.String(20))
     board = db.Column(db.String(50))
     content = db.Column(db.Text)
-    chapters = db.Column(db.ARRAY(db.String))
+    # The 'chapters' column is the source of the error and is temporarily disabled.
+    # chapters = db.Column(db.Text, nullable=True) 
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

@@ -10,6 +10,20 @@ import { useToast } from '@/hooks/use-toast';
 import { FileText, User, Clock, CheckCircle } from 'lucide-react';
 import API from '@/services/api';
 
+function parseQuestions(text) {
+  const questionRegex = /(\d+\.\s.*?)(?=\d+\.|$)/gs;
+  const matches = text.match(questionRegex) || [];
+  return matches.map(q => {
+    const [questionPart, ...optionParts] = q.split(/(?=[a-dA-D]\))/g);
+    const question = questionPart.trim();
+    const optionsRaw = optionParts.join(' ').replace(/\s+/g, ' ');
+    const options = optionsRaw
+      ? optionsRaw.split(/(?=[A-Da-d]\))/g).map(opt => opt.trim()).filter(Boolean)
+      : [];
+    return { question, options };
+  });
+}
+
 const ViewSubmissions = () => {
   const [user, setUser] = useState(authService.getAuthState().user);
   const [submissions, setSubmissions] = useState<StudentSubmission[]>([]);
@@ -141,7 +155,7 @@ const ViewSubmissions = () => {
 
   const handleLogout = () => {
     authService.logout();
-    navigate('/');
+    navigate('/login');
   };
 
   if (!user) {
@@ -381,12 +395,44 @@ const ViewSubmissions = () => {
                                   {selectedSubmission.evaluation.feedback}
                                 </p>
                               </div>
-                              <div>
-                                <h4 className="font-medium mb-2">Score Breakdown:</h4>
-                                <p className="text-sm bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                                  {selectedSubmission.evaluation.scoreBreakdown}
-                                </p>
-                              </div>
+                              {/* Score Breakdown Pretty View */}
+                              {selectedSubmission && selectedSubmission.evaluation && (() => {
+                                const paper = getPaper(selectedSubmission.questionPaperId);
+                                if (!paper) return null;
+                                const parsedQuestions = parseQuestions(paper.content || '');
+                                let studentAnswers = {};
+                                try {
+                                  if (typeof selectedSubmission.answers === 'string') {
+                                    studentAnswers = JSON.parse(selectedSubmission.answers);
+                                  } else {
+                                    studentAnswers = selectedSubmission.answers;
+                                  }
+                                } catch {
+                                  studentAnswers = selectedSubmission.answers || {};
+                                }
+                                const scoreBreakdown = selectedSubmission.evaluation.scoreBreakdown || {};
+                                return (
+                                  <div className="mb-6">
+                                    <h4 className="font-medium mb-2">Score Breakdown:</h4>
+                                    <div className="bg-gray-50 dark:bg-gray-700 rounded p-4 max-h-60 overflow-y-auto text-sm font-mono whitespace-pre-wrap">
+                                      {parsedQuestions.map((q, idx) => (
+                                        <div key={idx} className="mb-4">
+                                          <div><strong>Q{idx + 1}:</strong> {q.question}</div>
+                                          {q.options.map((opt, oidx) => (
+                                            <div key={oidx} style={{ marginLeft: 16 }}>{opt}</div>
+                                          ))}
+                                          <div style={{ marginLeft: 16 }}>
+                                            <span><strong>Student's Answer:</strong> {studentAnswers[idx + 1] || '-'}</span>
+                                          </div>
+                                          <div style={{ marginLeft: 16 }}>
+                                            <span><strong>Score:</strong> {scoreBreakdown[idx + 1] ?? scoreBreakdown[`Question ${idx + 1}`] ?? 0}</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           )}
                         </DialogContent>

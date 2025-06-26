@@ -13,11 +13,44 @@ import { generateQuestionPaper, QuestionPaperParams } from '@/api/gemini';
 import { dataService } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowDown } from 'lucide-react';
+import 'react-quill/dist/quill.snow.css';
+import { marked } from 'marked';
+
+const quillToolbar = [
+  [{ 'header': [1, 2, 3, false] }],
+  ['bold', 'italic', 'underline', 'strike'],
+  [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+  ['image', 'code-block'],
+  ['clean']
+];
+
+const quillModules = {
+  toolbar: quillToolbar
+};
+
+function parseQuestions(text: string) {
+  // Split by question numbers (e.g., "1. ...", "2. ...")
+  const questionRegex = /(\d+\.\s.*?)(?=\d+\.|$)/gs;
+  const matches = text.match(questionRegex) || [];
+  return matches.map(q => {
+    // Extract question and options
+    const [questionPart, ...optionParts] = q.split(/(?=[a-dA-D]\))/g);
+    const question = questionPart.trim();
+    // Join all option parts and split by option pattern (A) ... B) ... etc)
+    const optionsRaw = optionParts.join(' ').replace(/\s+/g, ' ');
+    // Split by A) B) C) D) (case-insensitive)
+    const options = optionsRaw
+      ? optionsRaw.split(/(?=[A-Da-d]\))/g).map(opt => opt.trim()).filter(Boolean)
+      : [];
+    return { question, options };
+  });
+}
 
 const GeneratePaper = () => {
   const [user, setUser] = useState(authService.getAuthState().user);
   const [isLoading, setIsLoading] = useState(false);
   const [generatedPaper, setGeneratedPaper] = useState<string | null>(null);
+  const [parsedHtml, setParsedHtml] = useState<string>('');
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -70,6 +103,19 @@ const GeneratePaper = () => {
     }
     setUser(authState.user);
   }, [navigate]);
+
+  useEffect(() => {
+    if (!generatedPaper) {
+      setParsedHtml('');
+      return;
+    }
+    const parseResult = marked.parse(generatedPaper);
+    if (parseResult instanceof Promise) {
+      parseResult.then(setParsedHtml);
+    } else {
+      setParsedHtml(parseResult as string);
+    }
+  }, [generatedPaper]);
 
   const handleInputChange = (field: keyof QuestionPaperParams, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -139,7 +185,7 @@ const GeneratePaper = () => {
     }
   };
 
-  const handleSavePaper = () => {
+  const handleSavePaper = async () => {
     if (!generatedPaper || !user) return;
 
     const token = authService.getAuthState().token;
@@ -163,7 +209,7 @@ const GeneratePaper = () => {
         chapters: formData.chapters
       };
       console.log('Payload sent to backend:', payload);
-      dataService.saveQuestionPaper(payload, token);
+      await dataService.saveQuestionPaper(payload, token);
 
       toast({
         title: "Paper Saved!",
@@ -410,8 +456,25 @@ const GeneratePaper = () => {
                 </div>
               ) : generatedPaper ? (
                 <div className="space-y-4">
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 max-h-96 overflow-y-auto">
-                    <pre className="whitespace-pre-wrap text-sm font-mono">{generatedPaper}</pre>
+                  {/* Structured Questions View Only */}
+                  <div className="mt-6">
+                    <div className="font-semibold mb-2 text-gray-700 dark:text-gray-200">Generated Question Paper:</div>
+                    <div className="mb-4 text-base text-gray-800 dark:text-gray-100">
+                      <div><strong>Subject:</strong> {formData.subject || '-'}</div>
+                      <div><strong>Class:</strong> {formData.class || '-'}</div>
+                      {formData.instructions && (
+                        <div className="mt-2"><strong>Instructions:</strong> {formData.instructions}</div>
+                      )}
+                    </div>
+                    <pre className="max-h-[500px] overflow-y-auto bg-white dark:bg-gray-900 p-4 rounded shadow border text-sm font-mono whitespace-pre-wrap" style={{scrollbarWidth: 'thin'}}>
+                      {parseQuestions(generatedPaper || '').map((q, idx) => (
+                        [
+                          `${idx + 1}. ${q.question}`,
+                          ...q.options.map(opt => `  ${opt}`),
+                          ''
+                        ].join('\n')
+                      )).join('\n')}
+                    </pre>
                   </div>
                   <div className="flex gap-2">
                     <Button

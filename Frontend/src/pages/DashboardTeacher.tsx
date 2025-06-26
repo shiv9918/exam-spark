@@ -11,6 +11,20 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import API, { SERVER_BASE_URL } from '@/services/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
+function parseQuestions(text) {
+  const questionRegex = /(\d+\.\s.*?)(?=\d+\.|$)/gs;
+  const matches = text.match(questionRegex) || [];
+  return matches.map(q => {
+    const [questionPart, ...optionParts] = q.split(/(?=[a-dA-D]\))/g);
+    const question = questionPart.trim();
+    const optionsRaw = optionParts.join(' ').replace(/\s+/g, ' ');
+    const options = optionsRaw
+      ? optionsRaw.split(/(?=[A-Da-d]\))/g).map(opt => opt.trim()).filter(Boolean)
+      : [];
+    return { question, options };
+  });
+}
+
 const DashboardTeacher = () => {
   const [user, setUser] = useState(authService.getAuthState().user);
   const [stats, setStats] = useState({
@@ -89,7 +103,7 @@ const DashboardTeacher = () => {
       title: "Logged out",
       description: "You have been successfully logged out",
     });
-    navigate('/');
+    navigate('/login');
   };
 
   const handleDeletePaper = async (paperId: string) => {
@@ -374,9 +388,43 @@ const DashboardTeacher = () => {
                                       <div className="space-y-4">
                                         <div className="font-bold text-lg">Score: {selectedSubmission.evaluation.percentage}% ({selectedSubmission.evaluation.grade})</div>
                                         <div><strong>Feedback:</strong> {selectedSubmission.evaluation.feedback}</div>
-                                        <div><strong>Score Breakdown:</strong> {typeof selectedSubmission.evaluation.scoreBreakdown === 'object' && selectedSubmission.evaluation.scoreBreakdown !== null
-                                          ? Object.entries(selectedSubmission.evaluation.scoreBreakdown).map(([k, v]) => `${k}: ${v}`).join(', ')
-                                          : selectedSubmission.evaluation.scoreBreakdown}</div>
+                                        {selectedSubmission && selectedSubmission.evaluated && selectedSubmission.evaluation && (() => {
+                                          const paper = allPapers.find(p => String(p.id) === String(selectedSubmission.questionPaperId));
+                                          if (!paper) return null;
+                                          const parsedQuestions = parseQuestions(paper.content || '');
+                                          let studentAnswers = {};
+                                          try {
+                                            if (typeof selectedSubmission.answers === 'string') {
+                                              studentAnswers = JSON.parse(selectedSubmission.answers);
+                                            } else {
+                                              studentAnswers = selectedSubmission.answers;
+                                            }
+                                          } catch {
+                                            studentAnswers = selectedSubmission.answers || {};
+                                          }
+                                          const scoreBreakdown = selectedSubmission.evaluation.scoreBreakdown || {};
+                                          return (
+                                            <div className="mb-6">
+                                              <h4 className="font-medium mb-2">Score Breakdown:</h4>
+                                              <div className="bg-gray-50 dark:bg-gray-700 rounded p-4 max-h-60 overflow-y-auto text-sm font-mono whitespace-pre-wrap">
+                                                {parsedQuestions.map((q, idx) => (
+                                                  <div key={idx} className="mb-4">
+                                                    <div><strong>Q{idx + 1}:</strong> {q.question}</div>
+                                                    {q.options.map((opt, oidx) => (
+                                                      <div key={oidx} style={{ marginLeft: 16 }}>{opt}</div>
+                                                    ))}
+                                                    <div style={{ marginLeft: 16 }}>
+                                                      <span><strong>Student's Answer:</strong> {studentAnswers[idx + 1] || '-'}</span>
+                                                    </div>
+                                                    <div style={{ marginLeft: 16 }}>
+                                                      <span><strong>Score:</strong> {scoreBreakdown[idx + 1] ?? scoreBreakdown[`Question ${idx + 1}`] ?? 0}</span>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
                                         <div className="text-xs text-gray-500">Evaluated on: {selectedSubmission.evaluation.evaluatedAt && new Date(selectedSubmission.evaluation.evaluatedAt).toLocaleString()}</div>
                                       </div>
                                     ) : (

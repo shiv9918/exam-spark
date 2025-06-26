@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,6 +13,7 @@ import GeneratePaper from "./pages/GeneratePaper";
 import SolvePaper from "./pages/SolvePaper";
 import ViewSubmissions from "./pages/ViewSubmissions";
 import NotFound from "./pages/NotFound";
+import PerformanceAnalytics from "./pages/PerformanceAnalytics";
 
 const queryClient = new QueryClient();
 
@@ -32,7 +32,9 @@ const App = () => (
             <Route path="/dashboard-student" element={<DashboardStudent />} />
             <Route path="/generate-paper" element={<GeneratePaper />} />
             <Route path="/solve-paper/:paperId" element={<SolvePaper />} />
-            <Route path="/view-submissions" element={<ViewSubmissions />} />
+            <Route path="/view-submissions/:paperId" element={<ViewSubmissions />} />
+            <Route path="/performance-analytics" element={<PerformanceAnalytics />} />
+            <Route path="/performance-analytics/:submissionId" element={<PerformanceAnalytics />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

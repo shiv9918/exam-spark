@@ -10,9 +10,9 @@ import os
 import requests
 import json
 
-paper_bp = Blueprint('paper', __name__)
+papers_bp = Blueprint('papers', __name__)
 
-@paper_bp.route('/generate-paper', methods=['POST'])
+@papers_bp.route('/generate-paper', methods=['POST'])
 @jwt_required()
 def generate_paper_route():
     params = request.get_json()
@@ -102,7 +102,7 @@ def generate_paper_route():
         print(f"Unexpected Error: {e}")
         return jsonify({'error': f"Failed to generate question paper: {e}"}), 500
 
-@paper_bp.route('/papers', methods=['POST', 'OPTIONS'])
+@papers_bp.route('/papers', methods=['POST', 'OPTIONS'])
 def create_paper():
     print("POST /papers endpoint called")
     if request.method == 'OPTIONS':
@@ -124,7 +124,7 @@ def create_paper():
             difficulty=data['difficulty'],
             board=data['board'],
             content=data['content'],
-            chapters=data['chapters'],
+            # chapters=','.join(data.get('chapters', [])), # Temporarily disabled
             created_by=current_user_id
         )
         print("Paper object created")
@@ -140,7 +140,7 @@ def create_paper():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 422
 
-@paper_bp.route('/papers', methods=['GET'])
+@papers_bp.route('/papers', methods=['GET'])
 @jwt_required()
 def get_papers():
     print("GET /papers endpoint called")
@@ -170,7 +170,7 @@ def get_papers():
         'difficulty': p.difficulty,
         'board': p.board,
         'content': p.content,
-        'chapters': p.chapters,
+        # 'chapters': p.chapters.split(',') if p.chapters else [], # Temporarily disabled
         'createdBy': p.created_by,
         'createdAt': p.created_at.isoformat()
     } for p in papers]
@@ -179,7 +179,7 @@ def get_papers():
     print("Paper IDs:", [p['id'] for p in result])
     return jsonify(result)
 
-@paper_bp.route('/papers/<int:paper_id>', methods=['GET'])
+@papers_bp.route('/papers/<int:paper_id>', methods=['GET'])
 @jwt_required()
 def get_paper_by_id(paper_id):
     paper = QuestionPaper.query.get(paper_id)
@@ -193,17 +193,17 @@ def get_paper_by_id(paper_id):
         'difficulty': paper.difficulty,
         'board': paper.board,
         'content': paper.content,
-        'chapters': paper.chapters,
+        # 'chapters': paper.chapters.split(',') if paper.chapters else [], # Temporarily disabled
         'createdBy': paper.created_by,
         'createdAt': paper.created_at.isoformat()
     })
 
-@paper_bp.route('/test-debug', methods=['GET'])
+@papers_bp.route('/test-debug', methods=['GET'])
 def test_debug():
     print("Test debug route hit")
     return jsonify({"msg": "Debug route working"})
 
-@paper_bp.route('/papers/<int:paper_id>', methods=['DELETE'])
+@papers_bp.route('/papers/<int:paper_id>', methods=['DELETE'])
 @jwt_required()
 def delete_paper(paper_id):
     paper = QuestionPaper.query.get(paper_id)
@@ -215,7 +215,7 @@ def delete_paper(paper_id):
     db.session.commit()
     return jsonify({'message': 'Paper and related submissions deleted'}), 200
 
-@paper_bp.route('/submissions', methods=['POST'])
+@papers_bp.route('/submissions', methods=['POST'])
 @jwt_required()
 def create_submission():
     data = request.get_json()
@@ -235,7 +235,7 @@ def create_submission():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-@paper_bp.route('/submissions', methods=['GET'])
+@papers_bp.route('/submissions', methods=['GET'])
 @jwt_required()
 def get_submissions():
     claims = get_jwt()
@@ -246,27 +246,82 @@ def get_submissions():
         # Students can only see their own submissions
         submissions = StudentSubmission.query.filter_by(student_id=current_user_id).all()
     elif role == 'teacher':
-        # Teachers see submissions for papers they created
-        teacher_paper_ids = db.session.query(QuestionPaper.id).filter_by(created_by=current_user_id).scalar_subquery()
-        submissions = StudentSubmission.query.filter(StudentSubmission.question_paper_id.in_(teacher_paper_ids)).all()
+        # Teachers can see all submissions for papers they have created
+        user_papers = [p.id for p in QuestionPaper.query.filter_by(created_by=current_user_id).all()]
+        submissions = StudentSubmission.query.filter(StudentSubmission.question_paper_id.in_(user_papers)).all()
     else:
         return jsonify({"error": "Unauthorized role"}), 403
 
-    result = []
-    for sub in submissions:
-        result.append({
-            'id': sub.id,
-            'questionPaperId': sub.question_paper_id,
-            'studentId': sub.student_id,
-            'studentName': sub.student_name,
-            'answers': sub.answers,
-            'submittedAt': sub.submitted_at.isoformat() if sub.submitted_at else None,
-            'evaluated': sub.evaluated,
-            'evaluation': sub.evaluation
-        })
+    result = [{
+        'id': s.id,
+        'questionPaperId': s.question_paper_id,
+        'studentId': s.student_id,
+        'studentName': s.student_name,
+        'answers': s.answers,
+        'submittedAt': s.submitted_at.isoformat(),
+        'evaluated': s.evaluated,
+        'evaluation': s.evaluation,
+        'paper': None
+    } for s in submissions]
+    # Attach paper details
+    paper_map = {p.id: p for p in QuestionPaper.query.filter(QuestionPaper.id.in_([s.question_paper_id for s in submissions])).all()}
+    for r in result:
+        p = paper_map.get(r['questionPaperId'])
+        if p:
+            r['paper'] = {
+                'subject': p.subject,
+                'class': p.class_name,
+                'board': p.board,
+                'difficulty': p.difficulty,
+                'totalMarks': p.total_marks
+            }
     return jsonify(result)
 
-@paper_bp.route('/submissions/<int:submission_id>', methods=['PATCH'])
+@papers_bp.route('/submission/<int:submission_id>', methods=['GET'])
+@jwt_required()
+def get_submission(submission_id):
+    try:
+        current_user_id = get_jwt_identity()
+        claims = get_jwt()
+        
+        submission = StudentSubmission.query.get(submission_id)
+
+        if not submission:
+            return jsonify({"error": "Submission not found"}), 404
+
+        # Check if the user is authorized to view this submission
+        is_student_owner = submission.student_id == current_user_id
+        
+        paper = QuestionPaper.query.get(submission.question_paper_id)
+        is_teacher_owner = paper.created_by == current_user_id if paper else False
+
+        if not (is_student_owner or is_teacher_owner):
+             return jsonify({"error": "Unauthorized"}), 403
+
+        submission_data = {
+            "id": submission.id,
+            "questionPaperId": submission.question_paper_id,
+            "studentId": submission.student_id,
+            "studentName": submission.student_name,
+            "submittedAt": submission.submitted_at.isoformat(),
+            "evaluated": submission.evaluated,
+            "evaluation": submission.evaluation,
+        }
+        
+        if paper:
+            submission_data['paper'] = {
+                'subject': paper.subject,
+                'class': paper.class_name,
+                'board': paper.board,
+                'difficulty': paper.difficulty,
+                'totalMarks': paper.total_marks
+            }
+
+        return jsonify(submission_data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@papers_bp.route('/submissions/<int:submission_id>', methods=['PATCH'])
 @jwt_required()
 def update_submission_evaluation(submission_id):
     data = request.get_json()
@@ -278,7 +333,7 @@ def update_submission_evaluation(submission_id):
     db.session.commit()
     return jsonify({'message': 'Submission evaluation updated'})
 
-@paper_bp.route('/evaluate-submission', methods=['POST'])
+@papers_bp.route('/evaluate-submission', methods=['POST'])
 @jwt_required()
 def evaluate_submission_route():
     data = request.get_json()
@@ -367,3 +422,6 @@ def evaluate_submission_route():
     except Exception as e:
         print(f"Unexpected Evaluation Error: {e}")
         return jsonify({'error': f"Failed to evaluate submission: {e}"}), 500
+
+# Export for compatibility with app.py
+paper_bp = papers_bp

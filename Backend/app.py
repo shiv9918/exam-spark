@@ -18,14 +18,24 @@ def create_app():
     db.init_app(app)
     jwt = JWTManager(app)
 
-    # Robust CORS setup: use a hardcoded list to avoid environment issues
+    # Robust CORS setup: default allowed origins plus an env override.
+    # Add additional production preview/deployed origins (e.g. Vercel preview deployments)
     cors_origins = [
         "http://localhost:8080",
         "http://localhost:8081",
         "https://exam-spark-t9v2.vercel.app", # Old Vercel domain
-        "https://exam-sparks.vercel.app"    # New Vercel domain
+        "https://exam-sparks.vercel.app",    # New Vercel domain
+        "https://exam-spark-jgmd.vercel.app" # Current frontend origin seen in the CORS error
     ]
-    
+
+    # Allow configuring extra origins via environment variable (comma-separated)
+    extra = os.environ.get('CORS_ORIGINS')
+    if extra:
+        # e.g. CORS_ORIGINS=https://a.vercel.app,https://b.vercel.app
+        cors_origins += [o.strip() for o in extra.split(',') if o.strip()]
+
+    # Apply CORS. If you need cookies/auth, keep supports_credentials=True and make sure
+    # you set explicit origins (can't use "*"). For quick testing you can use CORS(app)
     CORS(app, origins=cors_origins, supports_credentials=True)
 
     # MOVE THIS IMPORT HERE TO AVOID CIRCULAR IMPORT

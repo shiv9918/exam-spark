@@ -25,7 +25,9 @@ def create_app():
         "http://localhost:8081",
         "https://exam-spark-t9v2.vercel.app", # Old Vercel domain
         "https://exam-sparks.vercel.app",    # New Vercel domain
-        "https://exam-spark-jgmd.vercel.app" # Current frontend origin seen in the CORS error
+        "https://exam-spark-jgmd.vercel.app", # Previous frontend origin
+        "https://exam-spark-alpha.vercel.app", # Current frontend preview
+        "https://exam-spark-self.vercel.app"  # Current frontend preview
     ]
 
     # Allow configuring extra origins via environment variable (comma-separated)

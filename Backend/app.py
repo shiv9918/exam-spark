@@ -54,9 +54,16 @@ def create_app():
         return send_from_directory(os.path.join(app.root_path, 'uploads'), filename)
 
     with app.app_context():
-        db.create_all()
-        # Create upload directory if it doesn't exist
-        os.makedirs(os.path.join(app.root_path, 'uploads/profile_pics'), exist_ok=True)
+        try:
+            db.create_all()
+            # Create upload directory if it doesn't exist
+            os.makedirs(os.path.join(app.root_path, 'uploads/profile_pics'), exist_ok=True)
+        except Exception as e:
+            # If DATABASE_URL is not set or database is unavailable, log and continue.
+            # This allows the app to start on Render free tier (which may not have
+            # PostgreSQL provisioned yet). In production, DATABASE_URL must be set.
+            print(f"Warning: Could not initialize database: {e}")
+            print("Database will be created on first request that requires it.")
         
     return app
 

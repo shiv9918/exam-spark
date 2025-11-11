@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from datetime import timedelta
 load_dotenv()
 
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, jsonify
 from db import db
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
@@ -49,6 +49,14 @@ def create_app():
     # name to avoid Flask complaining about duplicate blueprint names.
     app.register_blueprint(auth_bp, url_prefix='/auth', name='auth_noapi')
     app.register_blueprint(paper_bp, url_prefix='/api')
+
+    # Top-level debug route: returns whether GEMINI_API_KEY is configured.
+    # This is useful to check deployment environment even if blueprints
+    # are not loading for some reason.
+    @app.route('/debug/gemini', methods=['GET'])
+    def debug_gemini_app():
+        gemini_present = bool(os.environ.get('GEMINI_API_KEY'))
+        return jsonify({'gemini_configured': gemini_present})
 
     # Route to serve uploaded files
     @app.route('/uploads/<path:filename>')

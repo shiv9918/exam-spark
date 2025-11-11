@@ -9,8 +9,38 @@ from datetime import datetime
 import os
 import requests
 import json
+import traceback
 
 papers_bp = Blueprint('papers', __name__)
+
+
+# Module-level helper to discover a generation-capable model for a given API key.
+def discover_generation_model(api_key):
+    list_url = "https://generativelanguage.googleapis.com/v1beta/models"
+    try:
+        r = requests.get(list_url, params={"key": api_key}, timeout=20)
+        r.raise_for_status()
+        models_data = r.json()
+        models = models_data.get('models', [])
+        # Heuristic: look for models whose details mention 'generateContent' or 'generate'
+        for m in models:
+            try:
+                s = json.dumps(m)
+                if 'generateContent' in s or 'generate' in s or 'generateText' in s:
+                    # model name may be under 'name' or 'model'
+                    name = m.get('name') or m.get('model') or None
+                    if name:
+                        return name
+            except Exception:
+                continue
+        # Fallback: return None so caller can handle
+        print('Model discovery: no suitable generation model found')
+        print('ListModels returned: ', json.dumps(models_data)[:2000])
+        return None
+    except Exception as e:
+        print('Error listing models:', e)
+        traceback.print_exc()
+        return None
 
 @papers_bp.route('/generate-paper', methods=['POST'])
 @jwt_required()
@@ -43,8 +73,8 @@ def generate_paper_route():
         gemini_api_key = os.environ.get('GEMINI_API_KEY')
         if not gemini_api_key:
             return jsonify({'error': 'GEMINI_API_KEY not configured'}), 500
-            
-        gemini_api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+        model_name = os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash')
+        gemini_api_url = f"https://generativelanguage.googleapis.com/v1/models/{model_name}:generateContent"
 
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
@@ -55,25 +85,34 @@ def generate_paper_route():
                 "maxOutputTokens": 2048,
             }
         }
-        # Send the API key as a query param (requests will keep it out of our formatted strings)
-        # and set a timeout to avoid long hangs.
-        response = requests.post(gemini_api_url, params={"key": gemini_api_key}, json=payload, timeout=30)
 
-        # Log the response status and a truncated body for debugging but DO NOT log URLs or the key
-        print(f"Gemini API Response Status: {response.status_code}")
-        safe_text = (response.text[:1000] + '...') if len(response.text) > 1000 else response.text
-        print(f"Gemini API Response (truncated): {safe_text}")
-
+        response = None
         try:
+            print(f"Attempting Gemini URL: {gemini_api_url}")
+            response = requests.post(gemini_api_url, params={"key": gemini_api_key}, json=payload, timeout=30)
             response.raise_for_status()
+        
         except requests.exceptions.HTTPError as he:
-            # Provide actionable guidance without revealing the key
-            status = getattr(response, 'status_code', None)
+            status = getattr(he.response, 'status_code', None)
+            print(f"HTTPError from {gemini_api_url}: {status} - {he}")
+            # Log response body for more details
+            if he.response is not None:
+                print(f"Error response: {he.response.text}")
             msg = f"Gemini API HTTP error: {status}. Check GEMINI_API_KEY and model name."
             print(msg)
             return jsonify({'error': msg}), 502
-        
-        data = response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"Gemini API Error: {e}")
+            return jsonify({'error': f"API request failed: {e}"}), 500
+
+        if response is None:
+            return jsonify({'error': "Failed to get response from Gemini API."}), 502
+
+        try:
+            data = response.json()
+        except json.JSONDecodeError:
+            print(f"Gemini API Error: Failed to decode JSON from response. Response text: {response.text}")
+            return jsonify({'error': 'Failed to decode response from Gemini API.'}), 500
         
         # Enhanced error handling for Gemini response
         if not data.get("candidates"):
@@ -392,7 +431,8 @@ def evaluate_submission_route():
         if not gemini_api_key:
             return jsonify({'error': 'GEMINI_API_KEY not configured'}), 500
             
-        gemini_api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+        model_name = os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash')
+        gemini_api_url = f"https://generativelanguage.googleapis.com/v1/models/{model_name}:generateContent"
 
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
@@ -403,21 +443,33 @@ def evaluate_submission_route():
                 "maxOutputTokens": 1024,
             }
         }
-        response = requests.post(gemini_api_url, params={"key": gemini_api_key}, json=payload, timeout=30)
 
-        print(f"Gemini Evaluation API Response Status: {response.status_code}")
-        safe_text = (response.text[:1000] + '...') if len(response.text) > 1000 else response.text
-        print(f"Gemini Evaluation API Response (truncated): {safe_text}")
-
+        response = None
         try:
+            print(f"Attempting Gemini Evaluation URL: {gemini_api_url}")
+            response = requests.post(gemini_api_url, params={"key": gemini_api_key}, json=payload, timeout=30)
             response.raise_for_status()
-        except requests.exceptions.HTTPError:
-            status = getattr(response, 'status_code', None)
+        
+        except requests.exceptions.HTTPError as he:
+            status = getattr(he.response, 'status_code', None)
+            print(f"HTTPError from {gemini_api_url}: {status} - {he}")
+            if he.response is not None:
+                print(f"Error response: {he.response.text}")
             msg = f"Gemini API HTTP error during evaluation: {status}. Check GEMINI_API_KEY and model availability."
             print(msg)
             return jsonify({'error': msg}), 502
-        
-        data = response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"Error requesting {gemini_api_url}: {e}")
+            return jsonify({'error': f"API request failed during evaluation: {e}"}), 500
+
+        if response is None:
+            return jsonify({'error': "Failed to get response from Gemini API during evaluation."}), 502
+
+        try:
+            data = response.json()
+        except json.JSONDecodeError:
+            print(f"Gemini API Error: Failed to decode JSON from response. Response text: {response.text}")
+            return jsonify({'error': 'Failed to decode response from Gemini API during evaluation.'}), 500
         response_text = data.get("candidates")[0].get("content").get("parts")[0].get("text", "")
         
         try:

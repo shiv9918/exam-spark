@@ -44,8 +44,8 @@ def generate_paper_route():
         if not gemini_api_key:
             return jsonify({'error': 'GEMINI_API_KEY not configured'}), 500
             
-        gemini_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_api_key}"
-        
+        gemini_api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
@@ -55,14 +55,23 @@ def generate_paper_route():
                 "maxOutputTokens": 2048,
             }
         }
+        # Send the API key as a query param (requests will keep it out of our formatted strings)
+        # and set a timeout to avoid long hangs.
+        response = requests.post(gemini_api_url, params={"key": gemini_api_key}, json=payload, timeout=30)
 
-        response = requests.post(gemini_api_url, json=payload)
-        
-        # Log the response for debugging
+        # Log the response status and a truncated body for debugging but DO NOT log URLs or the key
         print(f"Gemini API Response Status: {response.status_code}")
-        print(f"Gemini API Response: {response.text}")
-        
-        response.raise_for_status()
+        safe_text = (response.text[:1000] + '...') if len(response.text) > 1000 else response.text
+        print(f"Gemini API Response (truncated): {safe_text}")
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as he:
+            # Provide actionable guidance without revealing the key
+            status = getattr(response, 'status_code', None)
+            msg = f"Gemini API HTTP error: {status}. Check GEMINI_API_KEY and model name."
+            print(msg)
+            return jsonify({'error': msg}), 502
         
         data = response.json()
         
@@ -383,8 +392,8 @@ def evaluate_submission_route():
         if not gemini_api_key:
             return jsonify({'error': 'GEMINI_API_KEY not configured'}), 500
             
-        gemini_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_api_key}"
-        
+        gemini_api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
@@ -394,14 +403,19 @@ def evaluate_submission_route():
                 "maxOutputTokens": 1024,
             }
         }
+        response = requests.post(gemini_api_url, params={"key": gemini_api_key}, json=payload, timeout=30)
 
-        response = requests.post(gemini_api_url, json=payload)
-        
-        # Log the response for debugging
         print(f"Gemini Evaluation API Response Status: {response.status_code}")
-        print(f"Gemini Evaluation API Response: {response.text}")
-        
-        response.raise_for_status()
+        safe_text = (response.text[:1000] + '...') if len(response.text) > 1000 else response.text
+        print(f"Gemini Evaluation API Response (truncated): {safe_text}")
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError:
+            status = getattr(response, 'status_code', None)
+            msg = f"Gemini API HTTP error during evaluation: {status}. Check GEMINI_API_KEY and model availability."
+            print(msg)
+            return jsonify({'error': msg}), 502
         
         data = response.json()
         response_text = data.get("candidates")[0].get("content").get("parts")[0].get("text", "")

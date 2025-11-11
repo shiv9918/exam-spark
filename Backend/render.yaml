@@ -12,5 +12,10 @@ services:
         sync: false
       - key: JWT_SECRET_KEY
         sync: false
+      - key: CORS_ORIGINS
+        # Add your frontend origins (comma-separated). Update this value in Render dashboard if you
+        # prefer not to store preview domains here. Example:
+        # value: https://exam-spark-alpha.vercel.app,https://exam-spark-jgmd.vercel.app
+        value: https://exam-spark-alpha.vercel.app
       - key: GEMINI_API_KEY
         sync: false 

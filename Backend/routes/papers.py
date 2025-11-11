@@ -203,6 +203,15 @@ def test_debug():
     print("Test debug route hit")
     return jsonify({"msg": "Debug route working"})
 
+
+@papers_bp.route('/debug/gemini', methods=['GET'])
+def debug_gemini_config():
+    """Safe debug endpoint: returns whether GEMINI_API_KEY is present (does NOT return the key)."""
+    gemini_present = bool(os.environ.get('GEMINI_API_KEY'))
+    return jsonify({
+        'gemini_configured': gemini_present
+    })
+
 @papers_bp.route('/papers/<int:paper_id>', methods=['DELETE'])
 @jwt_required()
 def delete_paper(paper_id):

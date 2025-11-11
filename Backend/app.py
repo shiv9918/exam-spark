@@ -42,6 +42,10 @@ def create_app():
     from routes.auth import auth_bp
     from routes.papers import paper_bp
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    # Also register auth routes without the /api prefix so older frontends or
+    # external clients that call /auth/* still work. Register with a different
+    # name to avoid Flask complaining about duplicate blueprint names.
+    app.register_blueprint(auth_bp, url_prefix='/auth', name='auth_noapi')
     app.register_blueprint(paper_bp, url_prefix='/api')
 
     # Route to serve uploaded files
